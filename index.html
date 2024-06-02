@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+
+<title>PA#1</title>
+<style>
+    body {
+        background-color: #EEEEEE;
+    }
+   .main-container {
+        display: flex;
+    }
+
+    #controls {
+        width: 40%;
+        margin-left: 20px;
+    }
+   .control-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+   .control-row label {
+        width: 150px;
+    }
+   .control-row input[type="range"] {
+        width: 200px;
+    }
+</style>
+
+<script src="./Utils/trackball-rotator.js"></script>
+<script src="./Utils/m4.js"></script>
+<script src="./shader.gpu"></script>
+<script src="./main.js"></script>
+
+</head>
+<body onload="init()">
+
+<h2>Золотько Вадим ТР-31мп</h2>
+<h3>Snail Surface</h3>
+
+<p id="message">Drag your mouse on the cube to rotate it.<br>
+(On a touch screen, you can use your finger.)</p>
+
+
+<div class="main-container">
+    <div id="canvas-holder">
+        <canvas width="600" height="600" id="webglcanvas"></canvas>
+    </div>
+    <div id="controls">
+        <div class="control-row">
+            <label>A</label>
+            <input type="range" id="A" min="0" max="1" step="0.05" value="0.25" onchange="updateSurface()">
+            <span id="currentMaxR"></span>
+        </div>
+        <div class="control-row">
+            <label>B</label>
+            <input type="range" id="B" min="0" max="1" step="0.05" value="0.25" onchange="updateSurface()">
+            <span id="currentMaxR"></span>
+        </div>
+        <div class="control-row">
+            <label>C</label>
+            <input type="range" id="C" min="0" max="1" step="0.05" value="0.125" onchange="updateSurface()">
+            <span id="currentMaxR"></span>
+        </div>
+        <div class="control-row">
+            <label>Eye separation</label>
+            <input type="range" id="eyeSeparation" min="-3" max="3" step="0.1" value="0.5" onchange="updateSurface()">
+        </div>
+        <div class="control-row">
+            <label>Convergence</label>
+            <input type="range" id="convergence" min="0.1" max="50" step="0.1" value="20" onchange="updateSurface()">
+        </div>
+        <div class="control-row">
+            <label>FOV</label>
+            <input type="range" id="fov" min="0" max="5" step="0.01" value="0.5" onchange="updateSurface()">
+        </div>
+        <div class="control-row">
+            <label>Near clipping</label>
+            <input type="range" id="near" min="5" max="11" step="0.1" value="9" onchange="updateSurface()">
+        </div>
+    </div>
+</div>
+
+
+</body></html>

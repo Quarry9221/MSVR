@@ -1,0 +1,53 @@
+// Vertex shader
+const vertexShaderSource = `
+attribute vec3 vertex;
+attribute vec2 textCoord;
+uniform mat4 ModelViewProjectionMatrix;
+uniform sampler2D tmu;
+varying vec3 vertPos;
+varying vec2 textureV;
+varying vec3 normalInterp;
+
+void main() {
+
+    textureV = textCoord;
+    gl_Position = ModelViewProjectionMatrix * vec4(vertex,1.0);
+}
+`;
+
+// Fragment shader
+const fragmentShaderSource = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+   precision highp float;
+#else
+   precision mediump float;
+#endif
+
+varying vec3 vertPos;
+uniform sampler2D tmu;
+varying vec3 normalInterp;
+varying vec2 textureV;
+void main() {
+
+vec3 N = normalize(normalInterp);
+    vec3 lightDir = vec3(1.0,1.0,1.0);
+
+    // Lambert's cosine law
+    float lambertian = max(dot(N, lightDir), 0.0);
+    float specular = 0.0;
+    if(lambertian > 0.0) {
+        vec3 R = reflect(-lightDir, N);      // Reflected light vector
+        vec3 V = normalize(-vertPos); // Vector to viewer
+        // Compute the specular term
+        float specAngle = max(dot(R, V), 0.0);
+        specular = pow(specAngle, 10.0);
+    }
+    vec3 ambientColor = vec3(0.1);
+    vec3 diffuseColor = vec3(0.2,0.0,0.8);
+    vec3 specularColor = vec3(1.0);
+
+
+    vec4 texColor = texture2D(tmu,textureV);
+    gl_FragColor = texColor;
+}
+`;
