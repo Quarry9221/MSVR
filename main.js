@@ -7,6 +7,9 @@ let spaceball;                  // A SimpleRotator object that lets the user rot
 let A = 0.3;
 let B = 0.3;
 let C = 0.15;
+let webCameraTexture;
+let video;
+let webCamera;
 
 let texture;
 const { cos, sin, sqrt, pow, PI, tan } = Math
@@ -130,7 +133,7 @@ class StereoCamera {
 
 
 function draw() { 
-    gl.clearColor(0,0,0,1);
+    gl.clearColor(1,1,1,1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     
     /* Set the values of the projection transformation */
@@ -147,6 +150,7 @@ function draw() {
     let matAccum0 = m4.multiply(rotateToPointZero, modelView);
     let matAccum1 = m4.multiply(translateToPointZero, matAccum0);
 
+    let constRotation = m4.multiply(rotateToPointZero, [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 
     let stereoCamera = new StereoCamera(
         parseFloat(document.getElementById("eyeSeparation").value),
@@ -161,6 +165,10 @@ function draw() {
 
     gl.uniformMatrix4fv(shProgram.iProjectionMatrix, false, projection);
     let modelViewProjection = m4.multiply(projection, matAccum1);
+    gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, constRotation);
+    gl.bindTexture(gl.TEXTURE_2D, webCameraTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+    webCamera.Draw();
 
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.clear(gl.DEPTH_BUFFER_BIT);
@@ -250,6 +258,10 @@ function updateSurface() {
 
 }
 
+function updateCamera() {
+    draw();
+    window.requestAnimationFrame(updateCamera);
+}
 
 function LoadTexture() {
 
@@ -271,6 +283,17 @@ function LoadTexture() {
 }
 
 
+function getCameraTexture()
+{
+    webCameraTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, webCameraTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+}
+
+
 
 /* Initialize the WebGL context. Called from init() */
 function initGL() {
@@ -289,10 +312,36 @@ function initGL() {
     let data = CreateSurfaceData(A, B, C);
     surface.BufferData(data.vertices, data.texturesList);
 
+    webCamera = new Model('WebCamera');
+    webCamera.BufferData(
+        [1, 1, 1, -1, -1, 0, -1, 1, 0, -1, -1, 0, 1, 1, 0, 1, -1, 0],
+        [0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1]
+
+    );
+
     LoadTexture();
+    getCameraTexture();
 
     gl.enable(gl.DEPTH_TEST);
 }
+
+
+function startVideo() {
+    video = document.createElement('video');
+    video.setAttribute('autoplay', true);
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+            video.srcObject = stream;
+        })
+        .catch(err => {
+            console.error("Error accessing the webcam: " + err);
+        });
+}
+
+
+
+
+
 
 
 
@@ -321,6 +370,7 @@ function createProgram(gl, vShader, fShader) {
 function init() {
     
     let canvas;
+    startVideo();
     try {
         canvas = document.getElementById("webglcanvas");
         gl = canvas.getContext("webgl");
@@ -346,4 +396,5 @@ function init() {
 
     spaceball = new TrackballRotator(canvas, draw, 0);
     updateSurface();
+    updateCamera();
 }
