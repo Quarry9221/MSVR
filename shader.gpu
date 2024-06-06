@@ -8,6 +8,7 @@ varying vec3 vertPos;
 varying vec2 textureV;
 varying vec3 normalInterp;
 
+uniform bool sphereColor;
 void main() {
 
     textureV = textCoord;
@@ -27,6 +28,8 @@ varying vec3 vertPos;
 uniform sampler2D tmu;
 varying vec3 normalInterp;
 varying vec2 textureV;
+
+uniform bool sphereColor;
 void main() {
 
 vec3 N = normalize(normalInterp);
@@ -46,8 +49,15 @@ vec3 N = normalize(normalInterp);
     vec3 diffuseColor = vec3(0.2,0.0,0.8);
     vec3 specularColor = vec3(1.0);
 
+    if(sphereColor)
+    {
+        gl_FragColor = vec4(0.2, 0.5, 0.3, 1.0);
+    }
+    else
+    {
+        vec4 texColor = texture2D(tmu,textureV);
+        gl_FragColor = texColor;
+    }
 
-    vec4 texColor = texture2D(tmu,textureV);
-    gl_FragColor = texColor;
 }
 `;

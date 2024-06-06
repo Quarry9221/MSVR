@@ -10,10 +10,78 @@ let C = 0.15;
 let webCameraTexture;
 let video;
 let webCamera;
+let audioManager;
+
+let isFilterOn = false;
+let isMovingSphere = false;
+
+let sphere;
+let sphereCenter = { x: 0, y: 0, z: 0 };
+
 
 let texture;
 const { cos, sin, sqrt, pow, PI, tan } = Math
 
+class AudioManager {
+    constructor() {
+        this.audio = document.getElementById("audio");
+        this.audioContext = null;
+        this.audioSource = null;
+        this.panner = null;
+        this.audioFilter = null;
+        this.isFilterOn = false;
+
+        this.initAudio();
+    }
+
+    initAudio() {
+        this.audio.addEventListener("pause", () => {
+            if (this.audioContext) {
+                this.audioContext.suspend();
+            }
+        });
+
+        this.audio.addEventListener("play", () => {
+            if (!this.audioContext) {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                this.audioSource = this.audioContext.createMediaElementSource(this.audio);
+
+                this.panner = this.audioContext.createPanner();
+                this.panner.panningModel = "HRTF";
+                this.panner.distanceModel = "linear";
+                
+                this.audioSource.connect(this.panner);
+                this.panner.connect(this.audioContext.destination);
+
+                this.getFilter();
+            }
+            this.audioContext.resume();
+        });
+    }
+    getFilter() {
+        if (!this.audioFilter) {
+            this.audioFilter = this.audioContext.createBiquadFilter();
+            this.audioFilter.type = 'lowpass';
+            this.audioFilter.frequency.value = 1000;
+            this.audioFilter.Q.value = 0.6;
+        }
+
+        this.audioFilter.Q.value = document.getElementById("q").value;
+
+        const isFilterOn = document.getElementById("isFilterOn");
+
+        isFilterOn.addEventListener("change", () => {
+            if (isFilterOn.checked) {
+                this.panner.disconnect();
+                this.panner.connect(this.audioFilter);
+                this.audioFilter.connect(this.audioContext.destination);
+            } else {
+                this.panner.disconnect();
+                this.panner.connect(this.audioContext.destination);
+            }
+        });
+    }
+}
 
 
 
@@ -37,6 +105,14 @@ function Model(name) {
         this.count = vertices.length/3;
     }
 
+    this.BufferDataSphere = function (vertices) {
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW);
+
+        this.count = vertices.length / 3;
+    }
+
     this.Draw = function() {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
@@ -48,7 +124,17 @@ function Model(name) {
    
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.count);
     }
+    this.DrawSphere = function () {
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
+        gl.vertexAttribPointer(shProgram.iAttribVertex, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(shProgram.iAttribVertex);
+
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.count);
+    }
 }
+
+
 
 
 // Constructor
@@ -159,6 +245,9 @@ function draw() {
         parseFloat(document.getElementById("fov").value),
         parseFloat(document.getElementById("near").value)
     );
+    moveLight(audioManager,Date.now() * 0.001);
+
+    
 
     gl.uniform1i(shProgram.iTMU, 0);
 
@@ -178,6 +267,8 @@ function draw() {
     gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection);
     gl.colorMask(true, false, false, false);
     surface.Draw();
+    
+
 
     gl.clear(gl.DEPTH_BUFFER_BIT);
 
@@ -186,7 +277,12 @@ function draw() {
     modelViewProjection = m4.multiply(stereoCamera.ProjectionMatrix, m4.multiply(stereoCamera.ModelViewMatrix, matAccum1));
     gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection);
     gl.colorMask(false, true, true, false);
+    gl.uniform1i(shProgram.iSphereColor, true);
+    sphere.DrawSphere();
+    gl.uniform1i(shProgram.iSphereColor, false);
     surface.Draw();
+
+
 
     gl.colorMask(true, true, true, true);
 
@@ -294,6 +390,81 @@ function getCameraTexture()
 }
 
 
+function createSphereData() {
+    let vertexList = [];
+    let step = 0.05;
+  
+    for (let phi = 0; phi <= Math.PI; phi += step) {
+      for (let theta = 0; theta <= 2 * Math.PI; theta += step) {
+
+        let v1 = equationsSphere(phi, theta);
+        let v2 = equationsSphere(phi, theta + step);
+        let v3 = equationsSphere(phi + step, theta);
+        let v4 = equationsSphere(phi + step, theta + step);
+
+        vertexList.push(v1.x, v1.y, v1.z);
+        vertexList.push(v2.x, v2.y, v2.z);
+        vertexList.push(v3.x, v3.y, v3.z);
+        
+        vertexList.push(v2.x, v2.y, v2.z);
+        vertexList.push(v4.x, v4.y, v4.z);
+        vertexList.push(v3.x, v3.y, v3.z);
+
+      }
+    }
+  
+    return {vertices: vertexList};
+}
+
+function equationsSphere(phi, theta) {
+    let radius = 0.25;
+    let x = sphereCenter.x + radius * Math.sin(phi) * Math.cos(theta);
+    let y = sphereCenter.y + radius * Math.sin(phi) * Math.sin(theta);
+    let z = sphereCenter.z + radius * Math.cos(phi);
+
+    return {x, y, z};
+}
+
+function moveLight(audioManager,time) {
+    if (isMovingSphere.checked == true)
+        {
+
+
+        if (audioManager.panner) {
+            
+            audioManager.panner.setPosition(
+                sphereCenter.x * 0.7,
+                sphereCenter.y * 0.7,
+                sphereCenter.z
+            );
+        }
+    }
+        const center = { x: 0.0, y: 0.0, z: 0.0 }; 
+        const radius = 1.5; 
+        const speed = 2.0; 
+        const angle = time * speed;
+        sphereCenter.x = center.x + radius * Math.cos(angle);
+        sphereCenter.y = center.y; 
+        sphereCenter.z = center.z + radius * Math.sin(time * speed);
+        gl.uniform3fv(shProgram.sphereCenter, [sphereCenter.x, sphereCenter.y, sphereCenter.z]);
+    
+        updateSphereSource();
+    }
+
+function updateSphereSource() {
+    isMovingSphere = document.getElementById("isMovingSphere");
+    if (isMovingSphere.checked == true)
+        {
+            const sphereSourceData = createSphereData();
+            sphere.BufferDataSphere(sphereSourceData.vertices);
+        }
+
+}
+
+
+
+
+
 
 /* Initialize the WebGL context. Called from init() */
 function initGL() {
@@ -307,6 +478,7 @@ function initGL() {
     shProgram.iModelViewProjectionMatrix = gl.getUniformLocation(prog, "ModelViewProjectionMatrix");
     shProgram.iProjectionMatrix          = gl.getUniformLocation(prog, "ProjectionMatrix");
     shProgram.iTMU                       = gl.getUniformLocation(prog, "tmu");
+    shProgram.iSphereColor                   = gl.getUniformLocation(prog, "sphereColor");
 
     surface = new Model('Surface');
     let data = CreateSurfaceData(A, B, C);
@@ -318,6 +490,10 @@ function initGL() {
         [0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1]
 
     );
+
+    sphere = new Model('Sphere');
+    let spheredata = createSphereData();
+    sphere.BufferDataSphere(spheredata.vertices);
 
     LoadTexture();
     getCameraTexture();
@@ -368,7 +544,8 @@ function createProgram(gl, vShader, fShader) {
     return prog;
 }
 function init() {
-    
+    audioManager = new AudioManager();
+    document.getElementById("q").addEventListener("change", () => audioManager.getFilter());
     let canvas;
     startVideo();
     try {
@@ -398,3 +575,4 @@ function init() {
     updateSurface();
     updateCamera();
 }
+
